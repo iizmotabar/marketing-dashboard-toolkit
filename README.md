@@ -8,41 +8,7 @@ Most marketing teams have their spend in Google Ads and Meta, their revenue in a
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph Sources
-        A1[Google Ads API]
-        A2[Meta Ads API]
-        A3[GA4 export]
-        A4[CRM / Shopify]
-    end
-
-    Sources --> R[(BigQuery raw layer)]
-
-    R --> S1[Staging: currency normalization]
-    R --> S2[Staging: channel name standardization]
-    S1 --> J[unified_spend_revenue.sql]
-    S2 --> J
-
-    J --> M[fct_channel_performance]
-    M --> C1[CAC calculation]
-    M --> C2[ROAS calculation]
-
-    C1 --> D[Looker Studio dashboard]
-    C2 --> D
-
-    D --> P1[Page 1: Overview]
-    D --> P2[Page 2: Channel deep dive]
-    D --> P3[Page 3: Funnel]
-
-    classDef source fill:#F5F4FA,stroke:#644aab,color:#333
-    classDef transform fill:#fff3cd,stroke:#d35400,color:#333
-    classDef output fill:#e8f5e9,stroke:#1e8449,color:#333
-    class A1,A2,A3,A4 source
-    class S1,S2,J transform
-    class M,C1,C2 transform
-    class D,P1,P2,P3 output
-```
+![Architecture diagram](diagram.svg)
 
 The two staging steps are deliberately separated from the join logic. Currency normalization and channel name standardization ("cpc" in Google Ads vs "paid_search" in GA4) are the kind of small inconsistencies that silently break a join, so they're handled before `unified_spend_revenue.sql` ever runs, not inside it.
 
