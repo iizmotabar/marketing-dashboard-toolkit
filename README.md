@@ -4,30 +4,68 @@ A framework for pulling spend, revenue, and channel performance into a single Bi
 
 ## The problem this solves
 
-Most marketing teams have their spend in Google Ads and Meta, their revenue in a CRM or Shopify, and their behavioral data in GA4, and none of the three agree with each other. This toolkit blends all three into a channel level fact table so CAC, ROAS, and revenue by channel can finally be trusted.
+Most marketing teams have their spend in Google Ads and Meta, their revenue in a CRM or Shopify, and their behavioral data in GA4, and none of the three agree with each other because each platform names channels differently, reports in different currencies, and attributes conversions on its own logic. This toolkit resolves all three into a single channel-level fact table so CAC, ROAS, and revenue by channel can finally be trusted, no matter which page of the dashboard someone is looking at.
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    A[Google Ads API] --> D[BigQuery raw layer]
-    B[Meta Ads API] --> D
-    C[GA4 export] --> D
-    E[CRM / Shopify] --> D
-    D --> F[dbt staging models]
-    F --> G[fct_channel_performance]
-    G --> H[Looker Studio dashboard]
+flowchart TD
+    subgraph Sources
+        A1[Google Ads API]
+        A2[Meta Ads API]
+        A3[GA4 export]
+        A4[CRM / Shopify]
+    end
+
+    Sources --> R[(BigQuery raw layer)]
+
+    R --> S1[Staging: currency normalization]
+    R --> S2[Staging: channel name standardization]
+    S1 --> J[unified_spend_revenue.sql]
+    S2 --> J
+
+    J --> M[fct_channel_performance]
+    M --> C1[CAC calculation]
+    M --> C2[ROAS calculation]
+
+    C1 --> D[Looker Studio dashboard]
+    C2 --> D
+
+    D --> P1[Page 1: Overview]
+    D --> P2[Page 2: Channel deep dive]
+    D --> P3[Page 3: Funnel]
+
+    classDef source fill:#F5F4FA,stroke:#644aab,color:#333
+    classDef transform fill:#fff3cd,stroke:#d35400,color:#333
+    classDef output fill:#e8f5e9,stroke:#1e8449,color:#333
+    class A1,A2,A3,A4 source
+    class S1,S2,J transform
+    class M,C1,C2 transform
+    class D,P1,P2,P3 output
 ```
+
+The two staging steps are deliberately separated from the join logic. Currency normalization and channel name standardization ("cpc" in Google Ads vs "paid_search" in GA4) are the kind of small inconsistencies that silently break a join, so they're handled before `unified_spend_revenue.sql` ever runs, not inside it.
 
 ## What's in here
 
-* `sql/unified_spend_revenue.sql` blends ad spend and CRM revenue into one channel level table
-* `dbt_models/fct_channel_performance.sql` the mart table the dashboard queries directly, with CAC and ROAS calculated
-* `looker_studio/dashboard_spec.md` the page by page spec I use when building the actual Looker Studio dashboard on top of this model
+* `sql/unified_spend_revenue.sql` blends ad spend and CRM revenue into one channel and date level table, the query that normally lives in someone's head instead of the warehouse
+* `dbt_models/fct_channel_performance.sql` the mart table the dashboard queries directly, with CAC and ROAS calculated once so no two pages can disagree
+* `looker_studio/dashboard_spec.md` the page by page spec, including filters, scorecards, and refresh cadence, that I use when building the actual dashboard
 
 ## How it's used in practice
 
-The raw layer lands each source as-is with minimal transformation, so nothing upstream ever depends on a fragile join. The dbt layer handles currency normalization, channel name standardization (Google Ads calls it "cpc", GA4 calls it "paid_search"), and the actual spend to revenue join. Everything the dashboard shows comes from the single `fct_channel_performance` table, so there's one number for CAC no matter which page of the dashboard you're looking at.
+The raw layer lands each source as-is with minimal transformation, so nothing upstream ever depends on a fragile join. The staging layer handles the two things that break blended reporting most often: currency and naming inconsistency. The mart layer is the only place CAC and ROAS get calculated, and every dashboard page reads from it directly rather than recomputing anything, which is what keeps three different filtered views of the same dashboard from ever showing three different numbers for the same metric.
+
+## What good output looks like
+
+Once wired up, `fct_channel_performance` should have one row per date and channel with non-null `total_spend`, `total_revenue`, `cac`, and `roas`. A channel with spend but no CRM-attributed revenue will show `total_revenue = 0` rather than a null, which is intentional, a null there usually means a UTM tracking gap rather than genuinely zero revenue, and that's a separate audit finding (see `ga4-bigquery-audit-toolkit`).
+
+## Setup
+
+1. Set up API access for Google Ads, Meta Marketing API, and your CRM's API or export
+2. Land raw data into `project.ads.*` and `project.crm.*` tables matching the schema referenced in `sql/unified_spend_revenue.sql`
+3. Run the dbt project to build `fct_channel_performance`
+4. Connect Looker Studio directly to the mart table and build pages per `looker_studio/dashboard_spec.md`
 
 ## Stack
 
