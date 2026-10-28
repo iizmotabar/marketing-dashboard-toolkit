@@ -1,6 +1,6 @@
 # Marketing Dashboard Toolkit
 
-A framework for pulling spend, revenue, and channel performance into a single BigQuery model that feeds one dashboard, instead of five contradictory ones. Built around the kind of stack I set up at [motabar.builds.stuff](https://motabar.builds.stuff): ad platforms plus CRM plus GA4, blended into one source of truth.
+A framework for pulling spend, revenue, and channel performance into a single BigQuery model that feeds one dashboard, instead of five contradictory ones. Built around the kind of stack I set up at [motabar.builds.stuff](https://motabarbuildstuff.com/): ad platforms plus CRM plus GA4, blended into one source of truth.
 
 ## The problem this solves
 
@@ -36,3 +36,10 @@ Once wired up, `fct_channel_performance` should have one row per date and channe
 ## Stack
 
 BigQuery, dbt, Looker Studio, Google Ads API, Meta Marketing API
+
+## Related
+
+* Case study: [Single Source of Truth for Marketing Data](https://motabarbuildstuff.com/case-studies/single-source-of-truth-for-marketing-data/)
+* Service: [Marketing analytics consulting](https://motabarbuildstuff.com/marketing-analytics-consultant/)
+
+Built by [Motabar Javaid](https://motabarbuildstuff.com/about/), analytics engineer at [motabar.builds.stuff](https://motabarbuildstuff.com/).
